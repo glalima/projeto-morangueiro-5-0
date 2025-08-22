@@ -3,24 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualização 3D - Morangueiro de Precisão 5.0</title>
+    <title>Simulação 3D Avançada - Morangueiro de Precisão 5.0</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #f0f4f8; color: #333; }
         canvas { display: block; }
-        #info-box {
+        #ui-container {
             position: absolute;
             top: 10px;
             left: 10px;
             background-color: rgba(255, 255, 255, 0.8);
             padding: 15px;
             border-radius: 10px;
-            max-width: 300px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
-        h1 { margin: 0 0 10px 0; font-size: 1.2em; color: #a31621; }
-        p { margin: 0; font-size: 0.9em; }
-        ul { padding-left: 20px; margin: 5px 0 0 0; }
-        li { margin-bottom: 5px; }
+        .ui-title { margin: 0 0 10px 0; font-size: 1.2em; color: #a31621; font-weight: 700; }
+        .ui-label { font-size: 0.9em; display: flex; align-items: center; cursor: pointer; }
+        .ui-label input { margin-right: 8px; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,20 +29,17 @@
 </head>
 <body>
 
-    <div id="info-box">
-        <h1>Morangueiro de Precisão 5.0</h1>
-        <p>Arraste o mouse para rotacionar a câmera. Use o scroll para dar zoom.</p>
-        <ul>
-            <li><span style="color: #4CAF50;">■</span> Bancadas de Cultivo</li>
-            <li><span style="color: #f44336;">■</span> Setor 1 com Iluminação LED</li>
-        </ul>
+    <div id="ui-container">
+        <h1 class="ui-title">Controles da Simulação</h1>
+        <label class="ui-label"><input type="checkbox" id="toggleCobertura" checked> Mostrar Cobertura</label>
+        <label class="ui-label"><input type="checkbox" id="toggleLuzes" checked> Ligar LEDs</label>
     </div>
 
     <script type="importmap">
         {
             "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+                "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
             }
         }
     </script>
@@ -49,121 +47,252 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
-        // Configuração da Cena
+        // --- CONFIGURAÇÃO DA CENA ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f4f8);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(15, 15, 25);
+        scene.fog = new THREE.Fog(0xf0f4f8, 60, 150);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 40);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
         document.body.appendChild(renderer.domElement);
 
-        // Controles
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 10;
-        controls.maxDistance = 100;
-        controls.maxPolarAngle = Math.PI / 2;
+        controls.target.set(0, 2, 0);
+        controls.maxPolarAngle = Math.PI / 2.1;
 
-        // Luzes
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        // --- LUZES ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambientLight);
+        
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        sunLight.position.set(-50, 60, 40);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 200;
+        sunLight.shadow.camera.left = -60;
+        sunLight.shadow.camera.right = 60;
+        sunLight.shadow.camera.top = 60;
+        sunLight.shadow.camera.bottom = -60;
+        scene.add(sunLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(20, 30, 20);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        scene.add(directionalLight);
+        RectAreaLightUniformsLib.init();
 
-        // Dimensões
-        const estufaLargura = 8.1;
-        const estufaComprimento = 37;
-        const estufaAltura = 4;
-        const bancadaLargura = 1;
+        // --- DIMENSÕES E MATERIAIS ---
+        const estufaLargura = 12;
+        const estufaComprimento = 40;
+        const peDireito = 2.5;
+        const alturaTotalArco = 4.5;
+        const bancadaLargura = 0.7;
         const bancadaAltura = 0.2;
-        const bancadaY = 1;
+        const alturaBaseBancada = 1.0;
 
-        // Chão
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x99c283 });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        const materialBancada = new THREE.MeshStandardMaterial({ color: 0xfdd835, roughness: 0.8 }); // Amarelo
+        const materialSubstrato = new THREE.MeshStandardMaterial({ color: 0x3d2d1e });
+        const materialEstrutura = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.5, roughness: 0.5 });
+        const materialCobertura = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, roughness: 0.1, thickness: 0.1, side: THREE.DoubleSide });
+        const materialChao = new THREE.MeshStandardMaterial({ color: 0x8BC34A, roughness: 1 });
+        const materialTela = new THREE.MeshStandardMaterial({ color: 0x555555, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+
+        // --- CHÃO ---
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), materialChao);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Estrutura da Estufa (simplificada com linhas)
-        const estufaMaterial = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
-        const points = [];
-        points.push(new THREE.Vector3(-estufaLargura/2, 0, -estufaComprimento/2));
-        points.push(new THREE.Vector3(estufaLargura/2, 0, -estufaComprimento/2));
-        points.push(new THREE.Vector3(estufaLargura/2, 0, estufaComprimento/2));
-        points.push(new THREE.Vector3(-estufaLargura/2, 0, estufaComprimento/2));
-        points.push(new THREE.Vector3(-estufaLargura/2, 0, -estufaComprimento/2));
-        const baseGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const base = new THREE.Line(baseGeometry, estufaMaterial);
-        scene.add(base);
-        // Adicionando "pilares"
-        for (let i = 0; i < 4; i++) {
-            const pilar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, estufaAltura), new THREE.MeshStandardMaterial({color: 0xcccccc}));
-            pilar.position.set(
-                (i < 2 ? -estufaLargura/2 : estufaLargura/2),
-                estufaAltura/2,
-                (i % 2 === 0 ? -estufaComprimento/2 : estufaComprimento/2)
-            );
-            scene.add(pilar);
+        // --- ESTRUTURA DA ESTUFA ---
+        const estufaGroup = new THREE.Group();
+        
+        const numArcos = 10;
+        const curve = new THREE.QuadraticBezierCurve3(
+            new THREE.Vector3(-estufaLargura / 2, peDireito, 0),
+            new THREE.Vector3(0, alturaTotalArco, 0),
+            new THREE.Vector3(estufaLargura / 2, peDireito, 0)
+        );
+        const arcoGeo = new THREE.TubeGeometry(curve, 32, 0.08, 8, false);
+        for (let i = 0; i <= numArcos; i++) {
+            const arco = new THREE.Mesh(arcoGeo, materialEstrutura);
+            arco.position.z = -estufaComprimento / 2 + i * (estufaComprimento / numArcos);
+            arco.castShadow = true;
+            estufaGroup.add(arco);
         }
+        
+        const coberturaGeo = new THREE.ExtrudeGeometry(new THREE.Shape(curve.getPoints(50)), { steps: 1, depth: estufaComprimento, bevelEnabled: false });
+        const cobertura = new THREE.Mesh(coberturaGeo, materialCobertura);
+        cobertura.position.z = -estufaComprimento / 2;
+        estufaGroup.add(cobertura);
+        
+        // Paredes Laterais com tela
+        const paredeBaseGeo = new THREE.PlaneGeometry(estufaComprimento, 0.5);
+        const paredeBaseMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+        const baseEsquerda = new THREE.Mesh(paredeBaseGeo, paredeBaseMat);
+        baseEsquerda.rotation.y = Math.PI / 2;
+        baseEsquerda.position.set(-estufaLargura / 2, 0.25, 0);
+        estufaGroup.add(baseEsquerda);
+        
+        const telaGeo = new THREE.PlaneGeometry(estufaComprimento, peDireito - 0.5);
+        const telaEsquerda = new THREE.Mesh(telaGeo, materialTela);
+        telaEsquerda.rotation.y = Math.PI / 2;
+        telaEsquerda.position.set(-estufaLargura / 2, 0.5 + (peDireito - 0.5) / 2, 0);
+        estufaGroup.add(telaEsquerda);
 
-        // Materiais das Bancadas
-        const bancadaMaterial = new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.6 });
-        const bancadaLedMaterial = new THREE.MeshStandardMaterial({ color: 0xf44336, roughness: 0.6, emissive: 0x550000 });
+        const baseDireita = baseEsquerda.clone();
+        baseDireita.position.x = estufaLargura / 2;
+        estufaGroup.add(baseDireita);
+        const telaDireita = telaEsquerda.clone();
+        telaDireita.position.x = estufaLargura / 2;
+        estufaGroup.add(telaDireita);
 
-        // Criar Bancadas
-        const numFileiras = 5;
-        const numSecoes = 3;
-        const espacoFileiras = (estufaLargura - (numFileiras * bancadaLargura)) / (numFileiras - 1);
-        const comprimentoSecao = (estufaComprimento / numSecoes) * 0.95; // 95% para criar corredores
+        const paredeFundoGeo = new THREE.ShapeGeometry(new THREE.Shape(curve.getPoints(50)));
+        const paredeFundo = new THREE.Mesh(paredeFundoGeo, materialCobertura);
+        paredeFundo.position.z = estufaComprimento / 2;
+        estufaGroup.add(paredeFundo);
+        
+        // Parede da frente com porta "X"
+        const portaLargura = 2.5;
+        const portaAltura = 2.2;
+        const paredeFrenteShape = new THREE.Shape(curve.getPoints(50));
+        const doorPath = new THREE.Path();
+        doorPath.moveTo(-portaLargura / 2, 0);
+        doorPath.lineTo(portaLargura / 2, 0);
+        doorPath.lineTo(portaLargura / 2, portaAltura);
+        doorPath.lineTo(-portaLargura / 2, portaAltura);
+        doorPath.closePath();
+        paredeFrenteShape.holes.push(doorPath);
+        const paredeFrente = new THREE.Mesh(new THREE.ShapeGeometry(paredeFrenteShape), materialCobertura);
+        paredeFrente.position.z = -estufaComprimento / 2;
+        estufaGroup.add(paredeFrente);
+
+        const portaGeo = new THREE.BoxGeometry(portaLargura, portaAltura, 0.1);
+        const portaMat = new THREE.MeshStandardMaterial({color: 0xfdd835});
+        const porta = new THREE.Mesh(portaGeo, portaMat);
+        porta.position.set(0, portaAltura / 2, -estufaComprimento / 2);
+        const vigaXGeo = new THREE.BoxGeometry(0.15, Math.sqrt(Math.pow(portaLargura,2) + Math.pow(portaAltura,2)), 0.12);
+        const viga1 = new THREE.Mesh(vigaXGeo, materialEstrutura);
+        viga1.rotation.z = Math.atan(portaAltura/portaLargura);
+        porta.add(viga1);
+        const viga2 = viga1.clone();
+        viga2.rotation.z = -Math.atan(portaAltura/portaLargura);
+        porta.add(viga2);
+        estufaGroup.add(porta);
+
+        scene.add(estufaGroup);
+        
+        // --- BANCADAS, PLANTAS E LUZES ---
+        const luzesLED = [];
+        const paineisLED = [];
+        const numFileiras = 8;
+        const espacoCorredor = 0.71;
+        const larguraTotalLayout = numFileiras * bancadaLargura + (numFileiras - 1) * espacoCorredor;
+        const comprimentoSecao = (estufaComprimento - 2) / 3;
 
         for (let i = 0; i < numFileiras; i++) {
-            for (let j = 0; j < numSecoes; j++) {
-                const isLedSection = (j === 0); // Primeiro terço (Setor 1)
-                const material = isLedSection ? bancadaLedMaterial : bancadaMaterial;
-                
-                const bancadaGeometry = new THREE.BoxGeometry(bancadaLargura, bancadaAltura, comprimentoSecao);
-                const bancada = new THREE.Mesh(bancadaGeometry, material);
+            const posX = -larguraTotalLayout/2 + bancadaLargura/2 + i * (bancadaLargura + espacoCorredor);
+            
+            for (let j = 0; j < 3; j++) {
+                const posZ = -estufaComprimento/2 + 1 + comprimentoSecao/2 + j * comprimentoSecao;
+
+                const bancada = new THREE.Mesh(new THREE.BoxGeometry(bancadaLargura, bancadaAltura, comprimentoSecao * 0.95), materialBancada);
+                bancada.position.set(posX, alturaBaseBancada + bancadaAltura / 2, posZ);
                 bancada.castShadow = true;
                 bancada.receiveShadow = true;
-
-                const posX = -estufaLargura/2 + bancadaLargura/2 + i * (bancadaLargura + espacoFileiras);
-                const posZ = -estufaComprimento/2 + comprimentoSecao/2 + j * (comprimentoSecao / 0.95);
-                
-                bancada.position.set(posX, bancadaY, posZ);
                 scene.add(bancada);
 
-                // Adicionando "pernas" para as bancadas
-                const pernaGeo = new THREE.CylinderGeometry(0.05, 0.05, bancadaY);
-                const pernaMat = new THREE.MeshStandardMaterial({color: 0x555555});
-                for(let p = 0; p < 2; p++){
-                    const perna = new THREE.Mesh(pernaGeo, pernaMat);
-                    perna.position.set(posX, bancadaY/2, posZ + (p === 0 ? -comprimentoSecao/2.2 : comprimentoSecao/2.2));
-                    scene.add(perna);
+                const substrato = new THREE.Mesh(new THREE.BoxGeometry(bancadaLargura * 0.95, bancadaAltura, comprimentoSecao * 0.95), materialSubstrato);
+                substrato.position.set(posX, alturaBaseBancada + bancadaAltura * 1.5, posZ);
+                substrato.castShadow = true;
+                substrato.receiveShadow = true;
+                scene.add(substrato);
+
+                const plantaFolhaGeo = new THREE.SphereGeometry(0.1, 8, 6);
+                const plantaFolhaMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.8 });
+                const frutaGeo = new THREE.SphereGeometry(0.03, 6, 5);
+                const frutaMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5 });
+                
+                const numPlantas = Math.floor(comprimentoSecao / 0.3);
+                for (let p = 0; p < numPlantas; p++) {
+                    const planta = new THREE.Group();
+                    for (let f = 0; f < 5; f++) {
+                        const folha = new THREE.Mesh(plantaFolhaGeo, plantaFolhaMat);
+                        folha.position.set((Math.random() - 0.5) * 0.2, (Math.random()) * 0.1, (Math.random() - 0.5) * 0.2);
+                        folha.castShadow = true;
+                        planta.add(folha);
+                    }
+                    if(Math.random() > 0.5){
+                        const fruta = new THREE.Mesh(frutaGeo, frutaMat);
+                        fruta.position.y = -0.08;
+                        planta.add(fruta);
+                    }
+                    planta.position.set(
+                        (Math.random() - 0.5) * (bancadaLargura * 0.7),
+                        alturaBaseBancada + bancadaAltura * 2 + 0.1,
+                        -comprimentoSecao/2 * 0.9 + p * 0.3 + 0.15
+                    );
+                    const plantaContainer = new THREE.Group();
+                    plantaContainer.add(planta);
+                    plantaContainer.position.set(posX, 0, posZ);
+                    scene.add(plantaContainer);
+                }
+                
+                // Setor 1 com LEDs
+                if (j === 0) {
+                    const numPaineis = 6;
+                    const painelTamanho = 0.6;
+                    const luzLargura = 1.2;
+                    const luzComprimento = 1.2;
+
+                    for (let k = 0; k < numPaineis; k++) {
+                        const lightPosition = new THREE.Vector3(
+                            posX, 
+                            alturaTotalArco - 1.8, // Painéis mais baixos
+                            posZ - (comprimentoSecao * 0.95 / 2) + k * (comprimentoSecao * 0.95 / numPaineis) + (comprimentoSecao * 0.95 / (numPaineis * 2))
+                        );
+
+                        const ledLight = new THREE.RectAreaLight(0xff5050, 20, luzLargura, luzComprimento);
+                        ledLight.position.copy(lightPosition);
+                        ledLight.lookAt(lightPosition.x, 0, lightPosition.z);
+                        luzesLED.push(ledLight);
+                        scene.add(ledLight);
+
+                        const painelLedGeo = new THREE.BoxGeometry(painelTamanho, 0.05, painelTamanho);
+                        const painelLedMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, emissive: 0xff5050, emissiveIntensity: 0 });
+                        const painelLed = new THREE.Mesh(painelLedGeo, painelLedMat);
+                        painelLed.position.copy(lightPosition);
+                        paineisLED.push(painelLed);
+                        scene.add(painelLed);
+                    }
                 }
             }
         }
+        
+        // --- UI CONTROLS ---
+        document.getElementById('toggleCobertura').addEventListener('change', (e) => {
+            estufaGroup.visible = e.target.checked;
+        });
+        document.getElementById('toggleLuzes').addEventListener('change', (e) => {
+            const isVisible = e.target.checked;
+            luzesLED.forEach(l => l.visible = isVisible);
+            paineisLED.forEach(p => p.material.emissiveIntensity = isVisible ? 1.5 : 0);
+        });
 
-        // Animação
+        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
 
-        // Responsividade
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
