@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização 3D - Morangueiro de Precisão 5.0</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        canvas { display: block; }
+        #info-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        h1 { margin: 0 0 10px 0; font-size: 1.2em; color: #a31621; }
+        p { margin: 0; font-size: 0.9em; }
+        ul { padding-left: 20px; margin: 5px 0 0 0; }
+        li { margin-bottom: 5px; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="info-box">
+        <h1>Morangueiro de Precisão 5.0</h1>
+        <p>Arraste o mouse para rotacionar a câmera. Use o scroll para dar zoom.</p>
+        <ul>
+            <li><span style="color: #4CAF50;">■</span> Bancadas de Cultivo</li>
+            <li><span style="color: #f44336;">■</span> Setor 1 com Iluminação LED</li>
+        </ul>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Configuração da Cena
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f4f8);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 15, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Controles
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 10;
+        controls.maxDistance = 100;
+        controls.maxPolarAngle = Math.PI / 2;
+
+        // Luzes
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(20, 30, 20);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        scene.add(directionalLight);
+
+        // Dimensões
+        const estufaLargura = 8.1;
+        const estufaComprimento = 37;
+        const estufaAltura = 4;
+        const bancadaLargura = 1;
+        const bancadaAltura = 0.2;
+        const bancadaY = 1;
+
+        // Chão
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x99c283 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Estrutura da Estufa (simplificada com linhas)
+        const estufaMaterial = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
+        const points = [];
+        points.push(new THREE.Vector3(-estufaLargura/2, 0, -estufaComprimento/2));
+        points.push(new THREE.Vector3(estufaLargura/2, 0, -estufaComprimento/2));
+        points.push(new THREE.Vector3(estufaLargura/2, 0, estufaComprimento/2));
+        points.push(new THREE.Vector3(-estufaLargura/2, 0, estufaComprimento/2));
+        points.push(new THREE.Vector3(-estufaLargura/2, 0, -estufaComprimento/2));
+        const baseGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const base = new THREE.Line(baseGeometry, estufaMaterial);
+        scene.add(base);
+        // Adicionando "pilares"
+        for (let i = 0; i < 4; i++) {
+            const pilar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, estufaAltura), new THREE.MeshStandardMaterial({color: 0xcccccc}));
+            pilar.position.set(
+                (i < 2 ? -estufaLargura/2 : estufaLargura/2),
+                estufaAltura/2,
+                (i % 2 === 0 ? -estufaComprimento/2 : estufaComprimento/2)
+            );
+            scene.add(pilar);
+        }
+
+        // Materiais das Bancadas
+        const bancadaMaterial = new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.6 });
+        const bancadaLedMaterial = new THREE.MeshStandardMaterial({ color: 0xf44336, roughness: 0.6, emissive: 0x550000 });
+
+        // Criar Bancadas
+        const numFileiras = 5;
+        const numSecoes = 3;
+        const espacoFileiras = (estufaLargura - (numFileiras * bancadaLargura)) / (numFileiras - 1);
+        const comprimentoSecao = (estufaComprimento / numSecoes) * 0.95; // 95% para criar corredores
+
+        for (let i = 0; i < numFileiras; i++) {
+            for (let j = 0; j < numSecoes; j++) {
+                const isLedSection = (j === 0); // Primeiro terço (Setor 1)
+                const material = isLedSection ? bancadaLedMaterial : bancadaMaterial;
+                
+                const bancadaGeometry = new THREE.BoxGeometry(bancadaLargura, bancadaAltura, comprimentoSecao);
+                const bancada = new THREE.Mesh(bancadaGeometry, material);
+                bancada.castShadow = true;
+                bancada.receiveShadow = true;
+
+                const posX = -estufaLargura/2 + bancadaLargura/2 + i * (bancadaLargura + espacoFileiras);
+                const posZ = -estufaComprimento/2 + comprimentoSecao/2 + j * (comprimentoSecao / 0.95);
+                
+                bancada.position.set(posX, bancadaY, posZ);
+                scene.add(bancada);
+
+                // Adicionando "pernas" para as bancadas
+                const pernaGeo = new THREE.CylinderGeometry(0.05, 0.05, bancadaY);
+                const pernaMat = new THREE.MeshStandardMaterial({color: 0x555555});
+                for(let p = 0; p < 2; p++){
+                    const perna = new THREE.Mesh(pernaGeo, pernaMat);
+                    perna.position.set(posX, bancadaY/2, posZ + (p === 0 ? -comprimentoSecao/2.2 : comprimentoSecao/2.2));
+                    scene.add(perna);
+                }
+            }
+        }
+
+        // Animação
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Responsividade
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
